@@ -1,0 +1,7 @@
+name = "wanxinyouxi"
+pages_build_output_dir = "."
+compatibility_date = "2025-01-01"
+
+[[kv_namespaces]]
+binding = "SITE_DATA"
+id = "533e6b60ffd14ad9bc272896f868eedf"

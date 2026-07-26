@@ -1,0 +1,53 @@
+2026-07-26T02:24:12Z INF Starting tunnel tunnelID=46993314-3305-4a01-a69b-08d3951bb1d7
+2026-07-26T02:24:12Z INF Version 2026.7.3 (Checksum 8635da433b6df8194746e88ed9d2589566c20e38bfc2a80e431a348b7c765841)
+2026-07-26T02:24:12Z INF GOOS: windows, GOVersion: go1.26.4, GoArch: amd64
+2026-07-26T02:24:12Z INF Settings: map[cred-file:C:\Users\王七林\.cloudflared\46993314-3305-4a01-a69b-08d3951bb1d7.json credentials-file:C:\Users\王七林\.cloudflared\46993314-3305-4a01-a69b-08d3951bb1d7.json]
+2026-07-26T02:24:12Z INF cloudflared will not automatically update on Windows systems.
+2026-07-26T02:24:12Z INF Generated Connector ID: caf277bf-71c7-4a91-9028-fb3830b0df18
+2026-07-26T02:24:23Z INF Initial protocol quic
+2026-07-26T02:24:23Z INF ICMP proxy will use 192.168.0.104 as source for IPv4
+2026-07-26T02:24:23Z INF ICMP proxy will use fe80::feab:e840:3d5e:ee76 in zone WLAN 2 as source for IPv6
+2026-07-26T02:24:35Z INF +------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+2026-07-26T02:24:35Z INF |                                                                     CONNECTIVITY PRE-CHECKS                                                                      |
+2026-07-26T02:24:35Z INF +------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+2026-07-26T02:24:35Z INF cloudflared does not support loading the system root certificate pool on Windows. Please use --origin-ca-pool <PATH> to specify the path to the certificate pool
+2026-07-26T02:24:35Z INF |  COMPONENT         TARGET                     STATUS  DETAILS                                                                                                    |
+2026-07-26T02:24:35Z INF |  DNS Resolution    region1.v2.argotunnel.com  PASS    DNS Resolved successfully                                                                                  |
+2026-07-26T02:24:35Z INF |  DNS Resolution    region2.v2.argotunnel.com  PASS    DNS Resolved successfully                                                                                  |
+2026-07-26T02:24:35Z INF cloudflared does not support loading the system root certificate pool on Windows. Please use --origin-ca-pool <PATH> to specify the path to the certificate pool
+2026-07-26T02:24:35Z INF |  UDP Connectivity  region1.v2.argotunnel.com  FAIL    QUIC connection failed                                                                                     |
+2026-07-26T02:24:35Z INF |  UDP Connectivity  region2.v2.argotunnel.com  FAIL    QUIC connection failed                                                                                     |
+2026-07-26T02:24:35Z INF |  TCP Connectivity  region1.v2.argotunnel.com  FAIL    HTTP/2 connection is blocked or unreachable                                                                |
+2026-07-26T02:24:35Z INF |  TCP Connectivity  region2.v2.argotunnel.com  FAIL    HTTP/2 connection is blocked or unreachable                                                                |
+2026-07-26T02:24:35Z INF |  Cloudflare API    api.cloudflare.com:443     FAIL    API Connection failed                                                                                      |
+2026-07-26T02:24:35Z INF |  ERROR: Allow outbound QUIC traffic on port 7844 or use HTTP2.                                                                                                   |
+2026-07-26T02:24:35Z INF |  ERROR: Allow outbound QUIC traffic on port 7844 or use HTTP2.                                                                                                   |
+2026-07-26T02:24:35Z INF |  ERROR: Allow outbound TCP on port 7844.                                                                                                                         |
+2026-07-26T02:24:35Z INF ICMP proxy will use 192.168.0.104 as source for IPv4
+2026-07-26T02:24:35Z INF |  ERROR: Allow outbound TCP on port 7844.                                                                                                                         |
+2026-07-26T02:24:35Z INF |  ERROR: cloudflared will still run, but automatic software updates are unavailable. Ensure port 443 TCP to api.cloudflare.com is open if you want auto-updates.  |
+2026-07-26T02:24:35Z INF |                                                                                                                                                                  |
+2026-07-26T02:24:35Z INF |  SUMMARY: Environment has critical failures. cloudflared may not be able to establish a tunnel.                                                                  |
+2026-07-26T02:24:35Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.33
+2026-07-26T02:24:35Z INF +------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+2026-07-26T02:24:35Z INF precheck component="DNS Resolution" details="DNS Resolved successfully" run_id=9f503305-1538-478e-a4ca-67ad5df45ed6 status=pass target=region1.v2.argotunnel.com
+2026-07-26T02:24:35Z INF precheck component="DNS Resolution" details="DNS Resolved successfully" run_id=9f503305-1538-478e-a4ca-67ad5df45ed6 status=pass target=region2.v2.argotunnel.com
+2026-07-26T02:24:35Z INF precheck component="UDP Connectivity" details="QUIC connection failed" run_id=9f503305-1538-478e-a4ca-67ad5df45ed6 status=fail target=region1.v2.argotunnel.com
+2026-07-26T02:24:35Z INF precheck component="UDP Connectivity" details="QUIC connection failed" run_id=9f503305-1538-478e-a4ca-67ad5df45ed6 status=fail target=region2.v2.argotunnel.com
+2026-07-26T02:24:35Z INF precheck component="TCP Connectivity" details="HTTP/2 connection is blocked or unreachable" run_id=9f503305-1538-478e-a4ca-67ad5df45ed6 status=fail target=region1.v2.argotunnel.com
+2026-07-26T02:24:35Z INF precheck component="TCP Connectivity" details="HTTP/2 connection is blocked or unreachable" run_id=9f503305-1538-478e-a4ca-67ad5df45ed6 status=fail target=region2.v2.argotunnel.com
+2026-07-26T02:24:35Z INF precheck component="Cloudflare API" details="API Connection failed" run_id=9f503305-1538-478e-a4ca-67ad5df45ed6 status=fail target=api.cloudflare.com:443
+2026-07-26T02:24:35Z INF precheck complete hard_fail=true run_id=9f503305-1538-478e-a4ca-67ad5df45ed6
+2026-07-26T02:24:35Z INF ICMP proxy will use fe80::feab:e840:3d5e:ee76 in zone WLAN 2 as source for IPv6
+2026-07-26T02:24:35Z INF Starting metrics server on 127.0.0.1:20242/metrics
+2026-07-26T02:24:35Z INF Registered tunnel connection connIndex=0 connection=95d2922b-92fd-446d-8752-5eece9825292 event=0 ip=198.41.200.33 location=lax01 protocol=quic
+2026-07-26T02:24:35Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=1 event=0 ip=198.41.192.57
+2026-07-26T02:24:36Z INF Registered tunnel connection connIndex=1 connection=12b0a769-5c9f-44ed-9880-b5ff3301fe2a event=0 ip=198.41.192.57 location=lax07 protocol=quic
+2026-07-26T02:24:36Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=2 event=0 ip=198.41.192.7
+2026-07-26T02:24:37Z INF Registered tunnel connection connIndex=2 connection=2ecb9c16-a655-4c88-86cc-596880579470 event=0 ip=198.41.192.7 location=lax08 protocol=quic
+2026-07-26T02:24:37Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=3 event=0 ip=198.41.200.193
+2026-07-26T02:24:42Z WRN Failed to dial a quic connection error="failed to dial to edge with quic: timeout: no recent network activity" connIndex=3 event=0 ip=198.41.200.193
+2026-07-26T02:24:42Z INF Retrying connection in up to 2s connIndex=3 event=0 ip=198.41.200.193
+2026-07-26T02:24:43Z WRN Connection terminated error="failed to dial to edge with quic: timeout: no recent network activity" connIndex=3
+2026-07-26T02:24:58Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=3 event=0 ip=198.41.200.13
+2026-07-26T02:24:59Z INF Registered tunnel connection connIndex=3 connection=ad97d781-bc21-43b0-8136-009043ba5394 event=0 ip=198.41.200.13 location=lax01 protocol=quic

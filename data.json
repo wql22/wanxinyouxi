@@ -1,0 +1,12 @@
+{
+  "adminPassword": "WXC021015",
+  "categories": [
+    {
+      "id": "games",
+      "name": "晚心游戏",
+      "icon": "🎮",
+      "desc": "精品游戏资源与攻略",
+      "items": []
+    }
+  ]
+}

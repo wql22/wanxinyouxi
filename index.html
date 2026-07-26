@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>晚心游戏</title>
+<link rel="stylesheet" href="style.css?v=9">
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<header class="header">
+  <div class="header-inner">
+    <h1 class="logo" id="logoBtn">🌙 晚心游戏</h1>
+  </div>
+</header>
+
+<!-- 搜索栏（始终显示） -->
+<div class="search-bar" id="searchBar">
+  <div class="search-bar-inner">
+    <input type="text" class="search-input" id="searchInput" placeholder="搜索分类或资源...">
+  </div>
+  <div class="search-results" id="searchResults"></div>
+</div>
+
+<!-- 面包屑导航 -->
+<nav class="breadcrumb" id="breadcrumb">
+  <span class="breadcrumb-item active" data-view="home">🏠 首页</span>
+</nav>
+
+<!-- 主内容区 -->
+<main class="main-content">
+  <!-- 首页：分类卡片 -->
+  <section class="view view-home active" id="viewHome">
+    <div class="hero">
+      <h2>发现精彩世界</h2>
+      <p>游戏、影视、动漫、音乐... 你想要的都在这里</p>
+    </div>
+    <div class="category-grid" id="categoryGrid"></div>
+  </section>
+
+  <!-- 分类详情页 -->
+  <section class="view view-category" id="viewCategory">
+    <div class="category-header" id="categoryHeader"></div>
+    <div class="item-list" id="itemList"></div>
+    <div class="empty-state" id="emptyState" style="display:none;">
+      <div class="empty-icon">📭</div>
+      <p>该分类下暂无资源</p>
+      <p class="empty-hint">资源正在陆续添加中，敬请期待~</p>
+    </div>
+  </section>
+
+  <!-- 关于页 -->
+  <section class="view view-about" id="viewAbout">
+    <div class="about-card">
+      <h2>🌙 关于晚心游戏</h2>
+      <p>一个简单的资源导航站，收集整理各类有趣的游戏、影视、动漫等资源链接。</p>
+      <p>所有资源均来源于网络，仅供学习交流使用。</p>
+      <div class="about-footer">
+        <p>如有问题或建议，欢迎联系站长</p>
+        <div class="about-qq" onclick="copyQQ()">晚心游戏QQ群：865809461</div>
+        <div class="about-qq">进群口令：@@晚心游戏@</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 管理员后台 -->
+  <section class="view" id="viewAdmin">
+    <div class="admin-panel">
+      <h2 class="admin-title">⚙️ 管理员后台</h2>
+
+      <div class="admin-tabs">
+        <button class="admin-tab active" onclick="switchAdminTab('categories')">📁 分类管理</button>
+        <button class="admin-tab" onclick="switchAdminTab('items')">🔗 链接管理</button>
+        <button class="admin-tab" onclick="switchAdminTab('password')">🔑 修改密码</button>
+      </div>
+
+      <div class="admin-tab-content active" id="adminTabCategories">
+        <button class="admin-btn admin-btn-primary" onclick="showCategoryForm()">+ 添加分类</button>
+        <div class="admin-list" id="adminCategoryList"></div>
+        <div class="admin-form" id="adminCategoryForm" style="display:none;"></div>
+      </div>
+
+      <div class="admin-tab-content" id="adminTabItems">
+        <div class="admin-form-group">
+          <label>选择分类</label>
+          <select class="admin-select" id="adminItemCategorySelect" onchange="renderItemCardsForCategory(this.value)"></select>
+        </div>
+        <button class="admin-btn admin-btn-primary" onclick="showItemForm()">+ 添加链接</button>
+        <div class="admin-list" id="adminItemList"></div>
+        <div class="admin-form" id="adminItemForm" style="display:none;"></div>
+      </div>
+
+      <div class="admin-tab-content" id="adminTabPassword">
+        <div class="admin-form-group">
+          <label>当前密码</label>
+          <input type="password" id="adminOldPwd" class="admin-input" placeholder="请输入当前密码">
+        </div>
+        <div class="admin-form-group">
+          <label>新密码</label>
+          <input type="password" id="adminNewPwd" class="admin-input" placeholder="请输入新密码">
+        </div>
+        <div class="admin-form-group">
+          <label>确认新密码</label>
+          <input type="password" id="adminNewPwd2" class="admin-input" placeholder="请再次输入新密码">
+        </div>
+        <button class="admin-btn admin-btn-primary" onclick="changePassword()">修改密码</button>
+        <div class="admin-msg" id="adminPwdMsg" style="display:none;"></div>
+      </div>
+
+      <div class="admin-footer-inner">
+        <button class="admin-btn admin-btn-secondary" onclick="navigateTo('home')">← 返回首页</button>
+        <span class="admin-info" id="adminLastSave"></span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 页脚 -->
+<footer class="footer">
+  <div class="footer-inner">
+    <a href="#" class="footer-link" data-view="about">关于本站</a>
+    <span class="footer-divider">|</span>
+    <a href="#" class="footer-link" onclick="showAdminLogin();return false;">⚙️ 管理</a>
+    <span class="footer-divider">|</span>
+    <span class="footer-copy">&copy; 2026 晚心游戏</span>
+  </div>
+</footer>
+
+<!-- 链接预览弹窗 -->
+<div class="modal-overlay" id="modalOverlay"></div>
+
+<!-- 管理员登录弹窗 -->
+<div class="modal-overlay" id="adminLoginModal">
+  <div class="modal-card">
+    <div class="modal-icon">🔐</div>
+    <div class="modal-title">管理员登录</div>
+    <div class="modal-desc">请输入管理密码</div>
+    <input type="password" id="adminPasswordInput" class="admin-input" placeholder="请输入密码" autocomplete="off">
+    <div class="admin-login-error" id="adminLoginError" style="display:none;">密码错误，请重试</div>
+    <button class="modal-link" id="adminLoginBtn" onclick="adminLogin()">登 录</button>
+    <button class="modal-close" onclick="closeAdminLogin()">取消</button>
+  </div>
+</div>
+
+
+
+<script src="app.js?v=9"></script>
+</body>
+</html>
