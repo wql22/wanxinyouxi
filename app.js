@@ -573,7 +573,7 @@ async function generateShareImage(itemId) {
   _shareCanvas = canvas;
 
   // ======= 同时复制分享链接到剪贴板 =======
-  const shareUrl = 'https://wanxinyouxi.top/share/' + itemId;
+  const shareUrl = 'https://wanxinyouxi.top/';
   if (navigator.clipboard) {
     navigator.clipboard.writeText(shareUrl).catch(() => {});
   }
