@@ -1238,3 +1238,90 @@ a {
   background: #cccccc;
   border-radius: 4px;
 }
+
+/* ============================================
+   分享图片预览弹窗
+   ============================================ */
+.share-image-card {
+  background: #1e1e2e;
+  border-radius: 16px;
+  padding: 20px;
+  width: 92vw;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.share-image-title {
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.share-image-preview {
+  width: 100%;
+  border-radius: 10px;
+  display: block;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.share-image-hint {
+  color: rgba(255,255,255,0.5);
+  font-size: 0.8rem;
+  margin-top: 10px;
+  margin-bottom: 14px;
+}
+
+.share-image-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.share-image-btn {
+  flex: 1;
+  min-width: 120px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.share-image-btn.save-btn {
+  background: linear-gradient(135deg, #7c5cfc, #a855f7);
+  color: #fff;
+}
+
+.share-image-btn.save-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(124,92,252,0.4);
+}
+
+.share-image-btn.copy-img-btn {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.share-image-btn.copy-img-btn:hover {
+  background: rgba(255,255,255,0.18);
+}
+
+.share-image-card .modal-close {
+  margin-top: 14px;
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.7);
+}
+
+.share-image-card .modal-close:active {
+  background: rgba(255,255,255,0.2);
+}
