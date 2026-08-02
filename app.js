@@ -353,7 +353,7 @@ function openItemModal(categoryId, itemId) {
       <a href="${item.link}" target="_blank" rel="noopener" class="modal-link">🔗 打开主链接</a>
       ${item.link2 ? `<a href="${item.link2}" target="_blank" rel="noopener" class="modal-link-secondary">🔗 打开备用链接</a>` : ''}
       <button class="modal-link-secondary" onclick="copyLink('${item.link}')">📋 复制链接</button>
-      <button class="modal-link-secondary" onclick="copyShareLink('${item.id}')" style="background:linear-gradient(135deg,#7c5cfc,#a855f7);color:#fff;font-weight:600;">📤 复制分享卡片链接</button>
+      <button class="modal-link-secondary" onclick="generateShareImage('${item.id}')" style="background:linear-gradient(135deg,#7c5cfc,#a855f7);color:#fff;font-weight:600;">📤 生成分享图片</button>
       <button class="modal-close" onclick="closeModal()">关闭</button>
     </div>`;
   overlay.classList.add('show');
@@ -375,17 +375,258 @@ function copyLink(link) {
   }
 }
 
-function copyShareLink(itemId) {
+// 存储当前生成的分享图片 Canvas，供保存/复制按钮使用
+let _shareCanvas = null;
+
+// Canvas 圆角矩形
+function _drawRoundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// 文字换行绘制
+function _drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
+  const lines = [];
+  let currentLine = '';
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const testLine = currentLine + char;
+    if (ctx.measureText(testLine).width > maxWidth && currentLine.length > 0) {
+      lines.push(currentLine);
+      currentLine = char;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], x, y + i * lineHeight);
+  }
+  return lines.length;
+}
+
+async function generateShareImage(itemId) {
+  // 1. 查找 item
+  let item = null;
+  for (const c of state.categories) {
+    const found = c.items.find(i => i.id === itemId);
+    if (found) { item = found; break; }
+  }
+  if (!item) { showToast('资源未找到'); return; }
+
+  showToast('正在生成分享图片...');
+
+  const canvas = document.createElement('canvas');
+  const w = 750, h = 1000;
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+
+  // ======= 背景渐变 =======
+  const grad = ctx.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0, '#1a0533');
+  grad.addColorStop(0.4, '#2d1b69');
+  grad.addColorStop(1, '#1a0533');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  // ======= 装饰光晕 =======
+  ctx.fillStyle = 'rgba(147,51,234,0.07)';
+  ctx.beginPath(); ctx.arc(120, 150, 250, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(630, 850, 200, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(236,72,153,0.05)';
+  ctx.beginPath(); ctx.arc(375, 500, 220, 0, Math.PI * 2); ctx.fill();
+
+  // ======= 顶部细线装饰 =======
+  ctx.strokeStyle = 'rgba(147,51,234,0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(200, 30); ctx.lineTo(550, 30); ctx.stroke();
+
+  // ======= 顶部品牌标识 =======
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.font = '20px "PingFang SC","Microsoft YaHei","Heiti SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('🌙 晚心游戏', w / 2, 48);
+
+  // ======= 加载图标图片（如果是图片链接）=======
+  let iconImg = null, iconLoaded = false;
+  const isImgIcon = isImageIcon(item.icon);
+  if (isImgIcon) {
+    iconImg = new Image();
+    iconImg.crossOrigin = 'anonymous';
+    await new Promise(resolve => {
+      iconImg.onload = () => { iconLoaded = true; resolve(true); };
+      iconImg.onerror = () => resolve(false);
+      iconImg.src = item.icon;
+    });
+  }
+
+  // ======= 图标区域 =======
+  const iconAreaY = 100;
+  if (isImgIcon && iconLoaded) {
+    const iconSize = 200;
+    const ix = (w - iconSize) / 2;
+    const iy = iconAreaY;
+    // 背景光晕
+    ctx.fillStyle = 'rgba(147,51,234,0.12)';
+    ctx.beginPath(); ctx.arc(w / 2, iy + iconSize / 2, iconSize / 2 + 16, 0, Math.PI * 2); ctx.fill();
+    ctx.save();
+    _drawRoundRect(ctx, ix, iy, iconSize, iconSize, 28);
+    ctx.clip();
+    ctx.drawImage(iconImg, ix, iy, iconSize, iconSize);
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 3;
+    _drawRoundRect(ctx, ix, iy, iconSize, iconSize, 28);
+    ctx.stroke();
+  } else if (item.icon) {
+    // emoji 圆形容器
+    const cx = w / 2, cy = iconAreaY + 100;
+    ctx.fillStyle = 'rgba(147,51,234,0.12)';
+    ctx.beginPath(); ctx.arc(cx, cy, 56, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '80px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji","Heiti SC",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.icon, cx, cy);
+  }
+
+  // ======= 标题 =======
+  const titleY = isImgIcon && iconLoaded ? 340 : 320;
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 42px "PingFang SC","Microsoft YaHei","Heiti SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  _drawWrappedText(ctx, item.title || '精彩内容', w / 2, titleY, 580, 54);
+
+  // 标题下装饰短线
+  const titleLines = item.title ? Math.ceil(ctx.measureText(item.title).width / 580) : 1;
+  ctx.strokeStyle = 'rgba(147,51,234,0.4)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  const shortLineY = titleY + titleLines * 54 + 16;
+  ctx.moveTo(290, shortLineY);
+  ctx.lineTo(460, shortLineY);
+  ctx.stroke();
+
+  // ======= 描述 =======
+  const descY = shortLineY + 28;
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '24px "PingFang SC","Microsoft YaHei","Heiti SC",sans-serif';
+  const descLines = _drawWrappedText(ctx, item.desc || '精彩内容，等你来发现~', w / 2, descY, 540, 36);
+
+  // ======= 网址卡片区域 =======
+  const cardY = descY + descLines * 36 + 50;
+  const cardH = 140;
+  const cardX = 80;
+  const cardW = w - 160;
+
+  // 卡片背景
+  const cardGrad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
+  cardGrad.addColorStop(0, 'rgba(124,58,237,0.25)');
+  cardGrad.addColorStop(1, 'rgba(219,39,119,0.15)');
+  ctx.fillStyle = cardGrad;
+  _drawRoundRect(ctx, cardX, cardY, cardW, cardH, 20);
+  ctx.fill();
+  // 卡片边框
+  ctx.strokeStyle = 'rgba(147,51,234,0.35)';
+  ctx.lineWidth = 1.5;
+  _drawRoundRect(ctx, cardX, cardY, cardW, cardH, 20);
+  ctx.stroke();
+
+  // 卡片内：📍图标 + 标签
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '18px "PingFang SC","Microsoft YaHei","Heiti SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('🔗 访问网站', w / 2, cardY + 18);
+
+  // 卡片内：大号网址
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 36px "PingFang SC","Microsoft YaHei","Heiti SC",sans-serif';
+  ctx.fillText('wanxinyouxi.top', w / 2, cardY + 48);
+
+  // 卡片内：小提示
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '18px "PingFang SC","Microsoft YaHei","Heiti SC",sans-serif';
+  ctx.fillText('长按复制上方网址，浏览器打开即可访问', w / 2, cardY + 100);
+
+  // ======= 底部提示 =======
+  const bottomY = cardY + cardH + 50;
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  ctx.font = '16px "PingFang SC","Microsoft YaHei","Heiti SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('💡 保存图片后发送给好友即可分享', w / 2, bottomY);
+  ctx.fillText('链接已自动复制到剪贴板，可一并粘贴发送', w / 2, bottomY + 30);
+
+  // ======= 存储 canvas =======
+  _shareCanvas = canvas;
+
+  // ======= 同时复制分享链接到剪贴板 =======
   const shareUrl = 'https://wanxinyouxi.top/share/' + itemId;
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(shareUrl).then(() => showToast('分享链接已复制！发送到微信/QQ即可显示卡片'));
-  } else {
-    const area = document.createElement('textarea');
-    area.value = shareUrl; area.style.position = 'fixed'; area.style.opacity = 0;
-    document.body.appendChild(area); area.select();
-    document.execCommand('copy'); document.body.removeChild(area);
-    showToast('分享链接已复制！发送到微信/QQ即可显示卡片');
+    navigator.clipboard.writeText(shareUrl).catch(() => {});
   }
+
+  // ======= 显示预览弹窗 =======
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    showShareImageModal(url);
+  }, 'image/png', 0.92);
+}
+
+function showShareImageModal(imageUrl) {
+  const modal = document.getElementById('shareImageModal');
+  if (!modal) return;
+  const preview = document.getElementById('shareImagePreview');
+  if (preview) preview.src = imageUrl;
+  modal.classList.add('show');
+  // 弹窗打开后提示链接已自动复制
+  setTimeout(() => showToast('🔗 链接已自动复制，发图后可一并粘贴'), 400);
+}
+
+function closeShareImageModal() {
+  const modal = document.getElementById('shareImageModal');
+  if (modal) modal.classList.remove('show');
+  _shareCanvas = null;
+}
+
+function saveShareImage() {
+  if (!_shareCanvas) return;
+  _shareCanvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '晚心游戏_分享卡片.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('图片已保存');
+  }, 'image/png', 0.9);
+}
+
+function copyShareImage() {
+  if (!_shareCanvas) return;
+  _shareCanvas.toBlob(blob => {
+    navigator.clipboard.write([
+      new ClipboardItem({ 'image/png': blob })
+    ]).then(() => {
+      showToast('图片已复制，去微信/QQ粘贴发送即可');
+    }).catch(() => {
+      showToast('复制失败，请点击"保存图片"按钮');
+    });
+  }, 'image/png', 0.9);
 }
 
 // ============================================
