@@ -359,7 +359,6 @@ function openItemModal(categoryId, itemId) {
   overlay.classList.add('show');
 }
 
-
 function closeModal() {
   document.getElementById('modalOverlay').classList.remove('show');
 }
@@ -377,7 +376,7 @@ function copyLink(link) {
 }
 
 function copyShareLink(itemId) {
-  const shareUrl = 'https://wanxinyouxi.com/share/' + itemId;
+  const shareUrl = 'https://wanxinyouxi.top/share/' + itemId;
   if (navigator.clipboard) {
     navigator.clipboard.writeText(shareUrl).then(() => showToast('分享链接已复制！发送到微信/QQ即可显示卡片'));
   } else {
@@ -388,7 +387,6 @@ function copyShareLink(itemId) {
     showToast('分享链接已复制！发送到微信/QQ即可显示卡片');
   }
 }
-
 
 // ============================================
 // 10. QQ群复制
