@@ -353,10 +353,12 @@ function openItemModal(categoryId, itemId) {
       <a href="${item.link}" target="_blank" rel="noopener" class="modal-link">🔗 打开主链接</a>
       ${item.link2 ? `<a href="${item.link2}" target="_blank" rel="noopener" class="modal-link-secondary">🔗 打开备用链接</a>` : ''}
       <button class="modal-link-secondary" onclick="copyLink('${item.link}')">📋 复制链接</button>
+      <button class="modal-link-secondary" onclick="copyShareLink('${item.id}')" style="background:linear-gradient(135deg,#7c5cfc,#a855f7);color:#fff;font-weight:600;">📤 复制分享卡片链接</button>
       <button class="modal-close" onclick="closeModal()">关闭</button>
     </div>`;
   overlay.classList.add('show');
 }
+
 
 function closeModal() {
   document.getElementById('modalOverlay').classList.remove('show');
@@ -373,6 +375,20 @@ function copyLink(link) {
     showToast('链接已复制');
   }
 }
+
+function copyShareLink(itemId) {
+  const shareUrl = 'https://wanxinyouxi.com/share/' + itemId;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(shareUrl).then(() => showToast('分享链接已复制！发送到微信/QQ即可显示卡片'));
+  } else {
+    const area = document.createElement('textarea');
+    area.value = shareUrl; area.style.position = 'fixed'; area.style.opacity = 0;
+    document.body.appendChild(area); area.select();
+    document.execCommand('copy'); document.body.removeChild(area);
+    showToast('分享链接已复制！发送到微信/QQ即可显示卡片');
+  }
+}
+
 
 // ============================================
 // 10. QQ群复制
