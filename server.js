@@ -266,7 +266,7 @@ function handleSharePage(req, res, itemId) {
     }
   }
 
-  const siteUrl = 'https://wanxinyouxi.com';
+  const siteUrl = 'https://wanxinyouxi.top';
   const fallbackImage = siteUrl + '/og-cover.png';
 
   // 判断图标是否为有效的图片 URL
@@ -456,7 +456,6 @@ function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-
 // ==========================================
 // API 路由处理
 // ==========================================
@@ -615,7 +614,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-    // ===== GET /share/:itemId =====
+  // ===== GET /share/:itemId =====
   // 为每个链接生成独立的分享页（带 OG 标签 + 该链接的图标）
   if (pathname.startsWith('/share/')) {
     const itemId = pathname.replace('/share/', '').trim();
@@ -623,7 +622,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  
   // 静态文件
   if (pathname === '/') {
     pathname = '/index.html';
