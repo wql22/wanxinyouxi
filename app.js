@@ -1374,6 +1374,31 @@ async function init() {
   renderCategoryCards();
   bindEvents();
   updateLastSaveTime();
+  handleShareLink();
+}
+
+// 处理 /share/{itemId} 分享链接：自动打开对应游戏的详情弹窗
+function handleShareLink() {
+  const path = window.location.pathname || '';
+  const match = path.match(/^\/share\/(.+?)\/?$/);
+  if (!match) return;
+  const itemId = match[1];
+  // 在所有分类中查找该 item
+  let foundCat = null, foundItem = null;
+  for (const cat of state.categories) {
+    const it = cat.items.find(i => i.id === itemId);
+    if (it) { foundCat = cat; foundItem = it; break; }
+  }
+  if (!foundItem) {
+    showToast('该分享链接已失效');
+    return;
+  }
+  // 自动打开详情弹窗
+  openItemModal(foundCat.id, foundItem.id);
+  // 修改 URL 为首页（不影响当前页面，但让"返回"更友好）
+  try {
+    history.replaceState(null, '', '/');
+  } catch (e) { /* 忽略 */ }
 }
 
 function bindEvents() {
