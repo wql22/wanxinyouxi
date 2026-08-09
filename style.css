@@ -127,8 +127,8 @@ a {
 
 .search-input {
   flex: 1;
-  height: 42px;
-  border-radius: 21px;
+  height: 44px;
+  border-radius: 22px;
   border: 1px solid var(--border);
   background: var(--bg-input);
   color: var(--text);
@@ -144,6 +144,25 @@ a {
 
 .search-input::placeholder {
   color: var(--text-muted);
+}
+
+.search-btn {
+  height: 44px;
+  padding: 0 22px;
+  border-radius: 22px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent-light), var(--accent));
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.search-btn:active {
+  transform: scale(0.96);
+  opacity: 0.9;
 }
 
 .search-close {
@@ -256,7 +275,7 @@ a {
 }
 
 /* ============================================
-   首页 Hero
+   首页 Hero（紫色横幅）
    ============================================ */
 
 .hero {
@@ -277,6 +296,195 @@ a {
 .hero p {
   color: var(--text-secondary);
   font-size: 0.9rem;
+}
+
+/* 新版首页紫色横幅 */
+.hero-new {
+  background: linear-gradient(135deg, #7c5cfc 0%, #a855f7 100%);
+  border-radius: 0 0 var(--radius) var(--radius);
+  margin: 0 -16px 16px;  /* 抵消 main-content 的水平 padding，实现通栏 */
+  padding: 32px 16px 28px;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-new::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 140px; height: 140px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 50%;
+}
+
+.hero-new::after {
+  content: '';
+  position: absolute;
+  bottom: -50px; left: -30px;
+  width: 120px; height: 120px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 50%;
+}
+
+.hero-new .hero-icon {
+  font-size: 2.4rem;
+  margin-bottom: 8px;
+  position: relative;
+  z-index: 1;
+}
+
+.hero-new h2 {
+  background: none;
+  -webkit-background-clip: initial;
+  -webkit-text-fill-color: initial;
+  color: #fff;
+  font-size: 1.7rem;
+  margin-bottom: 6px;
+  position: relative;
+  z-index: 1;
+}
+
+.hero-new p {
+  color: rgba(255,255,255,0.85);
+  font-size: 0.95rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================
+   首页分类标签
+   ============================================ */
+
+.category-tabs {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 0 16px 14px;
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE 10+ */
+}
+
+.category-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.category-tab {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: 22px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.category-tab img {
+  width: 18px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.category-tab.active {
+  background: linear-gradient(135deg, var(--accent-light), var(--accent));
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(124,92,252,0.25);
+}
+
+.category-tab:active {
+  transform: scale(0.96);
+}
+
+/* ============================================
+   首页大卡片资源列表
+   ============================================ */
+
+.large-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 16px 16px;
+}
+
+.large-item-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.large-item-card:active {
+  transform: scale(0.98);
+}
+
+.large-item-cover {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--bg-input);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.large-item-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.large-item-cover::after {
+  content: '点击进入';
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(0,0,0,0.35);
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.large-item-info {
+  padding: 14px;
+}
+
+.large-item-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.large-item-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.large-item-tag {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(124, 92, 252, 0.1);
+  color: var(--accent-light);
 }
 
 /* ============================================
@@ -1237,4 +1445,91 @@ a {
 ::-webkit-scrollbar-thumb {
   background: #cccccc;
   border-radius: 4px;
+}
+
+/* ============================================
+   分享图片预览弹窗
+   ============================================ */
+.share-image-card {
+  background: #1e1e2e;
+  border-radius: 16px;
+  padding: 20px;
+  width: 92vw;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.share-image-title {
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.share-image-preview {
+  width: 100%;
+  border-radius: 10px;
+  display: block;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.share-image-hint {
+  color: rgba(255,255,255,0.5);
+  font-size: 0.8rem;
+  margin-top: 10px;
+  margin-bottom: 14px;
+}
+
+.share-image-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.share-image-btn {
+  flex: 1;
+  min-width: 120px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.share-image-btn.save-btn {
+  background: linear-gradient(135deg, #7c5cfc, #a855f7);
+  color: #fff;
+}
+
+.share-image-btn.save-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(124,92,252,0.4);
+}
+
+.share-image-btn.copy-img-btn {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.share-image-btn.copy-img-btn:hover {
+  background: rgba(255,255,255,0.18);
+}
+
+.share-image-card .modal-close {
+  margin-top: 14px;
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.7);
+}
+
+.share-image-card .modal-close:active {
+  background: rgba(255,255,255,0.2);
 }

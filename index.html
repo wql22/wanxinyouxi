@@ -12,8 +12,8 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="晚心游戏 - 发现精彩世界">
 <meta property="og:description" content="游戏、影视、动漫、音乐... 你想要的都在这里">
-<meta property="og:url" content="https://wanxinyouxi.com/">
-<meta property="og:image" content="https://wanxinyouxi.com/og-cover.png">
+<meta property="og:url" content="https://wanxinyouxi.top/">
+<meta property="og:image" content="https://wanxinyouxi.top/og-cover.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:site_name" content="晚心游戏">
@@ -23,18 +23,18 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="晚心游戏 - 发现精彩世界">
 <meta name="twitter:description" content="游戏、影视、动漫、音乐... 你想要的都在这里">
-<meta name="twitter:image" content="https://wanxinyouxi.com/og-cover.png">
+<meta name="twitter:image" content="https://wanxinyouxi.top/og-cover.png">
 
 <!-- ====== 微信专用 Schema.org 标记 ====== -->
 <meta itemprop="name" content="晚心游戏 - 发现精彩世界">
 <meta itemprop="description" content="游戏、影视、动漫、音乐... 你想要的都在这里">
-<meta itemprop="image" content="https://wanxinyouxi.com/og-cover.png">
+<meta itemprop="image" content="https://wanxinyouxi.top/og-cover.png">
 
 <!-- ====== 移动端主题色 ====== -->
 <meta name="theme-color" content="#7c5cfc">
 <meta name="apple-mobile-web-app-title" content="晚心游戏">
 
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=13&t=20260809">
 </head>
 <body>
 
@@ -48,7 +48,8 @@
 <!-- 搜索栏（始终显示） -->
 <div class="search-bar" id="searchBar">
   <div class="search-bar-inner">
-    <input type="text" class="search-input" id="searchInput" placeholder="搜索分类或资源...">
+    <input type="text" class="search-input" id="searchInput" placeholder="搜索资源名称、标签...">
+    <button class="search-btn" id="searchBtn" onclick="doSearch()">搜索</button>
   </div>
   <div class="search-results" id="searchResults"></div>
 </div>
@@ -60,13 +61,20 @@
 
 <!-- 主内容区 -->
 <main class="main-content">
-  <!-- 首页：分类卡片 -->
+  <!-- 首页：紫色横幅 + 分类标签 + 大卡片资源列表 -->
   <section class="view view-home active" id="viewHome">
-    <div class="hero">
-      <h2>发现精彩世界</h2>
-      <p>游戏、影视、动漫、音乐... 你想要的都在这里</p>
+    <div class="hero hero-new">
+      <div class="hero-icon">🎮</div>
+      <h2>晚心游戏</h2>
+      <p>海量真实游戏软件，尽在这里</p>
     </div>
-    <div class="category-grid" id="categoryGrid"></div>
+    <div class="category-tabs" id="categoryTabs"></div>
+    <div class="large-item-list" id="homeItemList"></div>
+    <div class="empty-state" id="homeEmptyState" style="display:none;">
+      <div class="empty-icon">📭</div>
+      <p>暂无相关资源</p>
+      <p class="empty-hint">资源正在陆续添加中，敬请期待~</p>
+    </div>
   </section>
 
   <!-- 分类详情页 -->
@@ -175,6 +183,20 @@
 
 
 
-<script src="app.js?v=9"></script>
+<!-- 分享图片预览弹窗 -->
+<div class="modal-overlay" id="shareImageModal">
+  <div class="share-image-card">
+    <div class="share-image-title">📤 分享图片预览</div>
+    <img id="shareImagePreview" class="share-image-preview" alt="分享卡片预览">
+    <div class="share-image-hint">长按或右键保存图片</div>
+    <div class="share-image-actions">
+      <button class="share-image-btn save-btn" onclick="saveShareImage()">💾 保存图片</button>
+      <button class="share-image-btn copy-img-btn" onclick="copyShareImage()">📋 复制图片</button>
+    </div>
+    <button class="modal-close" onclick="closeShareImageModal()">关闭</button>
+  </div>
+</div>
+
+<script src="app.js?v=13&t=20260809"></script>
 </body>
 </html>
