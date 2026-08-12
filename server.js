@@ -24,6 +24,7 @@ const MAX_BODY_SIZE = 50 * 1024 * 1024; // 限制请求体最大 50MB，防止�
 // 默认数据
 const defaultData = {
   adminPassword: 'admin123',
+  downloadCounts: {},
   categories: [
     {
       id: 'games', name: '游戏推荐', icon: '🎮', desc: '精品游戏资源与攻略',
@@ -85,6 +86,7 @@ function loadData() {
         appData = {
           adminPassword: parsed.adminPassword || defaultData.adminPassword,
           categories: parsed.categories,
+          downloadCounts: parsed.downloadCounts || {},
         };
         return;
       }
@@ -558,6 +560,35 @@ async function handleAPI(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/data') {
     console.log('[GET /api/data] 返回分类数据，分类数:', appData.categories.length);
     sendJSON(res, 200, { categories: appData.categories });
+    return;
+  }
+
+  // ===== GET /api/download-count =====
+  // 获取某游戏的全局下载次数（所有访问者共享）
+  if (req.method === 'GET' && pathname === '/api/download-count') {
+    const id = new URL(req.url, `http://${req.headers.host}`).searchParams.get('id');
+    const count = id ? (appData.downloadCounts[id] || 0) : 0;
+    sendJSON(res, 200, { count });
+    return;
+  }
+
+  // ===== POST /api/download-count =====
+  // 某游戏下载次数 +1（所有访问者共享）
+  if (req.method === 'POST' && pathname === '/api/download-count') {
+    try {
+      const body = await parseBody(req);
+      const id = body.id;
+      if (!id) { sendJSON(res, 400, { count: 0 }); return; }
+      const count = (appData.downloadCounts[id] || 0) + 1;
+      appData.downloadCounts[id] = count;
+      try { saveDataFile(); } catch (writeErr) {
+        console.error('[POST /api/download-count] 写入文件失败:', writeErr.message);
+      }
+      console.log('[POST /api/download-count] 游戏', id, '下载次数:', count);
+      sendJSON(res, 200, { count });
+    } catch (e) {
+      sendJSON(res, 400, { count: 0 });
+    }
     return;
   }
 
