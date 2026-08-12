@@ -575,23 +575,29 @@ async function navigateToCategory(categoryId) {
 // 9. 前台链接弹窗
 // ============================================
 
-const DL_COUNT_KEY_PREFIX = 'wx_download_count_';
-
-function getDownloadCount(itemId) {
+// 全局下载次数（存于服务器 KV，所有访客共享）
+async function fetchDownloadCount(itemId) {
   try {
-    const v = localStorage.getItem(DL_COUNT_KEY_PREFIX + itemId);
-    if (v === null) return 0;
-    const n = parseInt(v, 10);
-    return isNaN(n) ? 0 : n;
-  } catch (e) { return 0; }
+    const res = await fetch(`/api/download-count?id=${encodeURIComponent(itemId)}`, { cache: 'no-store' });
+    const data = await res.json();
+    return (data && typeof data.count === 'number') ? data.count : 0;
+  } catch (e) {
+    return 0;
+  }
 }
 
-function incrementDownloadCount(itemId) {
+async function incrementDownloadCount(itemId) {
   try {
-    const count = getDownloadCount(itemId) + 1;
-    localStorage.setItem(DL_COUNT_KEY_PREFIX + itemId, count.toString());
+    const res = await fetch('/api/download-count', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: itemId }),
+    });
+    const data = await res.json();
     const el = document.getElementById('downloadCount-' + itemId);
-    if (el) el.textContent = count + '次下载';
+    if (el && data && typeof data.count === 'number') {
+      el.textContent = data.count + '次下载';
+    }
   } catch (e) { /* ignore */ }
 }
 
@@ -602,7 +608,6 @@ function openItemModal(categoryId, itemId) {
   if (!item) return;
   if (!item.link) { showToast('该资源暂无链接，敬请期待~'); return; }
   const overlay = document.getElementById('modalOverlay');
-  const downloadCount = getDownloadCount(item.id);
   overlay.innerHTML = `
     <div class="modal-card">
       <div class="modal-icon">${renderIconHTML(item.icon, '')}</div>
@@ -614,7 +619,7 @@ function openItemModal(categoryId, itemId) {
           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
           <circle cx="12" cy="12" r="3"></circle>
         </svg>
-        <span id="downloadCount-${item.id}">${downloadCount}次下载</span>
+        <span id="downloadCount-${item.id}">0次下载</span>
       </div>
       ${item.link2 ? `<a href="${item.link2}" target="_blank" rel="noopener" class="modal-link-secondary">🔗 打开备用链接</a>` : ''}
       <button class="modal-link-secondary" onclick="copyLink('${item.link}')">📋 复制链接</button>
@@ -629,6 +634,11 @@ function openItemModal(categoryId, itemId) {
       <button class="modal-close" onclick="closeModal()">关闭</button>
     </div>`;
   overlay.classList.add('show');
+  // 异步加载全局下载次数（所有访客共享）
+  fetchDownloadCount(item.id).then(count => {
+    const el = document.getElementById('downloadCount-' + item.id);
+    if (el) el.textContent = count + '次下载';
+  });
 }
 
 function closeModal() {
