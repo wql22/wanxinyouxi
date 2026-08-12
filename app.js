@@ -613,14 +613,16 @@ function openItemModal(categoryId, itemId) {
       <div class="modal-icon">${renderIconHTML(item.icon, '')}</div>
       <div class="modal-title">${item.title}</div>
       <div class="modal-desc">${item.desc}</div>
-      <a href="${item.link}" target="_blank" rel="noopener" class="modal-link" onclick="incrementDownloadCount('${item.id}')">⬇️ 立即下载</a>
-      <div class="modal-download-count">
-        <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-          <circle cx="12" cy="12" r="3"></circle>
-        </svg>
-        <span id="downloadCount-${item.id}">0次下载</span>
-      </div>
+      <a href="${item.link}" target="_blank" rel="noopener" class="modal-link" onclick="incrementDownloadCount('${item.id}')">
+        <span class="modal-link-main">⬇️ 立即下载</span>
+        <span class="modal-download-count">
+          <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <span id="downloadCount-${item.id}">0次下载</span>
+        </span>
+      </a>
       ${item.link2 ? `<a href="${item.link2}" target="_blank" rel="noopener" class="modal-link-secondary">🔗 打开备用链接</a>` : ''}
       <button class="modal-link-secondary" onclick="copyLink('${item.link}')">📋 复制链接</button>
       <button class="modal-link-secondary" onclick="generateShareImage('${item.id}')" style="background:linear-gradient(135deg,#7c5cfc,#a855f7);color:#fff;font-weight:600;">📤 生成分享图片</button>

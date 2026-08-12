@@ -916,8 +916,11 @@ a {
 }
 
 .modal-link {
-  display: block;
-  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px 7px;
   background: var(--accent);
   color: #fff;
   border-radius: 25px;
@@ -930,6 +933,10 @@ a {
   box-sizing: border-box;
   font-size: 0.95rem;
   cursor: pointer;
+}
+
+.modal-link-main {
+  font-weight: 600;
 }
 
 .modal-link:active {
@@ -948,18 +955,18 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  margin-top: 8px;
-  margin-bottom: 2px;
-  font-size: 0.78rem;
-  color: var(--text-secondary);
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.9);
   user-select: none;
+  font-weight: 400;
 }
 
 .modal-download-count .eye-icon {
-  width: 15px;
-  height: 15px;
-  opacity: 0.85;
+  width: 13px;
+  height: 13px;
+  opacity: 0.9;
 }
 
 .modal-link-secondary {
