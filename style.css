@@ -944,6 +944,24 @@ a {
   transform: none;
 }
 
+.modal-download-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 8px;
+  margin-bottom: 2px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.modal-download-count .eye-icon {
+  width: 15px;
+  height: 15px;
+  opacity: 0.85;
+}
+
 .modal-link-secondary {
   display: block;
   padding: 10px;

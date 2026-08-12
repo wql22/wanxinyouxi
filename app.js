@@ -575,6 +575,26 @@ async function navigateToCategory(categoryId) {
 // 9. 前台链接弹窗
 // ============================================
 
+const DL_COUNT_KEY_PREFIX = 'wx_download_count_';
+
+function getDownloadCount(itemId) {
+  try {
+    const v = localStorage.getItem(DL_COUNT_KEY_PREFIX + itemId);
+    if (v === null) return 0;
+    const n = parseInt(v, 10);
+    return isNaN(n) ? 0 : n;
+  } catch (e) { return 0; }
+}
+
+function incrementDownloadCount(itemId) {
+  try {
+    const count = getDownloadCount(itemId) + 1;
+    localStorage.setItem(DL_COUNT_KEY_PREFIX + itemId, count.toString());
+    const el = document.getElementById('downloadCount-' + itemId);
+    if (el) el.textContent = count + '次下载';
+  } catch (e) { /* ignore */ }
+}
+
 function openItemModal(categoryId, itemId) {
   const cat = state.categories.find(c => c.id === categoryId);
   if (!cat) return;
@@ -582,12 +602,20 @@ function openItemModal(categoryId, itemId) {
   if (!item) return;
   if (!item.link) { showToast('该资源暂无链接，敬请期待~'); return; }
   const overlay = document.getElementById('modalOverlay');
+  const downloadCount = getDownloadCount(item.id);
   overlay.innerHTML = `
     <div class="modal-card">
       <div class="modal-icon">${renderIconHTML(item.icon, '')}</div>
       <div class="modal-title">${item.title}</div>
       <div class="modal-desc">${item.desc}</div>
-      <a href="${item.link}" target="_blank" rel="noopener" class="modal-link">⬇️ 立即下载</a>
+      <a href="${item.link}" target="_blank" rel="noopener" class="modal-link" onclick="incrementDownloadCount('${item.id}')">⬇️ 立即下载</a>
+      <div class="modal-download-count">
+        <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        <span id="downloadCount-${item.id}">${downloadCount}次下载</span>
+      </div>
       ${item.link2 ? `<a href="${item.link2}" target="_blank" rel="noopener" class="modal-link-secondary">🔗 打开备用链接</a>` : ''}
       <button class="modal-link-secondary" onclick="copyLink('${item.link}')">📋 复制链接</button>
       <button class="modal-link-secondary" onclick="generateShareImage('${item.id}')" style="background:linear-gradient(135deg,#7c5cfc,#a855f7);color:#fff;font-weight:600;">📤 生成分享图片</button>
