@@ -12,8 +12,8 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="晚心游戏 - 发现精彩世界">
 <meta property="og:description" content="游戏、影视、动漫、音乐... 你想要的都在这里">
-<meta property="og:url" content="https://wanxinyouxi.top/">
-<meta property="og:image" content="https://wanxinyouxi.top/og-cover.png">
+<meta property="og:url" content="https://wan123456.com/">
+<meta property="og:image" content="https://wan123456.com/og-cover.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:site_name" content="晚心游戏">
@@ -23,27 +23,34 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="晚心游戏 - 发现精彩世界">
 <meta name="twitter:description" content="游戏、影视、动漫、音乐... 你想要的都在这里">
-<meta name="twitter:image" content="https://wanxinyouxi.top/og-cover.png">
+<meta name="twitter:image" content="https://wan123456.com/og-cover.png">
 
 <!-- ====== 微信专用 Schema.org 标记 ====== -->
 <meta itemprop="name" content="晚心游戏 - 发现精彩世界">
 <meta itemprop="description" content="游戏、影视、动漫、音乐... 你想要的都在这里">
-<meta itemprop="image" content="https://wanxinyouxi.top/og-cover.png">
+<meta itemprop="image" content="https://wan123456.com/og-cover.png">
 
 <!-- ====== 移动端主题色 ====== -->
 <meta name="theme-color" content="#7c5cfc">
 <meta name="apple-mobile-web-app-title" content="晚心游戏">
 
-<link rel="stylesheet" href="style.css?v=13&t=20260809">
+<link rel="stylesheet" href="style.css?v=28&t=20260812">
 </head>
 <body>
 
 <!-- 顶部导航 -->
 <header class="header">
   <div class="header-inner">
-    <h1 class="logo" id="logoBtn">🌙 晚心游戏</h1>
+    <h1 class="logo" id="logoBtn"><img src="logo-wanxinchun.jpg" alt="晚心春" class="logo-icon"> 晚心游戏</h1>
   </div>
 </header>
+
+<!-- 首页置顶紫色横幅（仅首页显示） -->
+<div class="hero hero-new" id="homeHero">
+  <div class="hero-icon">🎮</div>
+  <h2>晚心游戏</h2>
+  <p>海量真实游戏软件，尽在这里</p>
+</div>
 
 <!-- 搜索栏（始终显示） -->
 <div class="search-bar" id="searchBar">
@@ -61,13 +68,8 @@
 
 <!-- 主内容区 -->
 <main class="main-content">
-  <!-- 首页：紫色横幅 + 分类标签 + 大卡片资源列表 -->
+  <!-- 首页：分类标签 + 大卡片资源列表 -->
   <section class="view view-home active" id="viewHome">
-    <div class="hero hero-new">
-      <div class="hero-icon">🎮</div>
-      <h2>晚心游戏</h2>
-      <p>海量真实游戏软件，尽在这里</p>
-    </div>
     <div class="category-tabs" id="categoryTabs"></div>
     <div class="large-item-list" id="homeItemList"></div>
     <div class="empty-state" id="homeEmptyState" style="display:none;">
@@ -192,11 +194,12 @@
     <div class="share-image-actions">
       <button class="share-image-btn save-btn" onclick="saveShareImage()">💾 保存图片</button>
       <button class="share-image-btn copy-img-btn" onclick="copyShareImage()">📋 复制图片</button>
+      <button class="share-image-btn copy-link-btn" onclick="copyShareLink()">🔗 复制链接</button>
     </div>
     <button class="modal-close" onclick="closeShareImageModal()">关闭</button>
   </div>
 </div>
 
-<script src="app.js?v=13&t=20260809"></script>
+<script src="app.js?v=29&t=20260812"></script>
 </body>
 </html>

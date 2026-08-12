@@ -60,22 +60,56 @@ const defaultData = {
 let adminPassword = '';
 
 // ============================================
-// 2. 服务端数据层
+// 2. 服务端数据层 + localStorage 缓存加速
 // ============================================
+
+const LS_CACHE_KEY = 'wx_site_data_v2';
+const LS_TS_KEY = 'wx_site_ts_v2';
+
+function _loadLocalCache() {
+  try {
+    const raw = localStorage.getItem(LS_CACHE_KEY);
+    if (!raw) return null;
+    const cats = JSON.parse(raw);
+    if (cats && Array.isArray(cats) && cats.length > 0) return cats;
+  } catch (e) { /* ignore */ }
+  return null;
+}
+
+function _saveLocalCache(categories) {
+  try {
+    localStorage.setItem(LS_CACHE_KEY, JSON.stringify(categories));
+    localStorage.setItem(LS_TS_KEY, Date.now().toString());
+  } catch (e) { /* localStorage 满则跳过 */ }
+}
+
+// 标记"刚刚保存过"的时间戳（用于防御 KV 延迟）
+function _markJustSaved() {
+  try { localStorage.setItem('wx_saved_at', Date.now().toString()); } catch (e) { /* ignore */ }
+}
+
+function _clearLocalCache() {
+  try { localStorage.removeItem(LS_CACHE_KEY); localStorage.removeItem(LS_TS_KEY); } catch (e) { /* ignore */ }
+}
 
 async function loadData() {
   try {
-    const resp = await fetch('/api/data?_t=' + Date.now(), { cache: 'no-store' });
+    // 优先尝试带缓存头的请求，若数据未变则 304 瞬间返回
+    const resp = await fetch('/api/data?_t=' + Date.now());
     if (resp.ok) {
       const json = await resp.json();
       if (json && json.categories && Array.isArray(json.categories)) {
         console.log('[loadData] 服务端返回分类数:', json.categories.length);
+        _saveLocalCache(json.categories);
         return json.categories;
       }
     }
   } catch (e) {
-    console.warn('从服务端加载数据失败，使用默认数据:', e.message);
+    console.warn('从服务端加载数据失败，使用缓存兜底:', e.message);
   }
+  // 离线或网络故障：优先用缓存
+  const cached = _loadLocalCache();
+  if (cached) return cached;
   return JSON.parse(JSON.stringify(defaultData.categories));
 }
 
@@ -121,21 +155,8 @@ async function attemptSave(retriesLeft) {
     if (json.success) {
       updateLastSaveTime();
       console.log('[saveData] 服务器确认保存成功');
-      // 验证读取
-      try {
-        const checkResp = await fetch('/api/data?_t=' + Date.now(), { cache: 'no-store' });
-        if (checkResp.ok) {
-          const checkData = await checkResp.json();
-          if (checkData.categories && checkData.categories.length === state.categories.length) {
-            console.log('[saveData] ✓ 验证通过');
-          } else {
-            console.warn('[saveData] ⚠ 验证异常！');
-            if (retriesLeft > 1) throw new Error('验证失败，重试');
-          }
-        }
-      } catch (checkErr) {
-        if (retriesLeft > 1) throw checkErr;
-      }
+      _saveLocalCache(state.categories);
+      _markJustSaved();
       return true;
     } else {
       showToast(json.message || '保存失败');
@@ -157,6 +178,98 @@ async function attemptSave(retriesLeft) {
 }
 
 // ============================================
+// 自动批量保存：连续删除/编辑时合并为一次请求
+// ============================================
+
+const SAVE_DEBOUNCE_MS = 600;   // 停止操作后多久保存
+const SAVE_MAX_WAIT_MS = 2500;  // 最多等待多久强制保存
+
+let saveDebounceTimer = null;
+let saveMaxWaitTimer = null;
+let saveInProgress = false;
+let pendingSavePromise = null;
+let pendingSaveResolve = null;
+let pendingSnapshot = null;
+
+function _takePendingSnapshot() {
+  if (!pendingSnapshot) {
+    pendingSnapshot = JSON.parse(JSON.stringify(state.categories));
+  }
+}
+
+/**
+ * 请求保存：将多次连续修改合并为一次服务器请求
+ * 返回 Promise<boolean>，在真正保存完成后 resolve
+ */
+function requestSave() {
+  if (!adminPassword) {
+    showToast('登录已过期，请重新登录');
+    return Promise.resolve(false);
+  }
+
+  _takePendingSnapshot();
+
+  if (!pendingSavePromise) {
+    pendingSavePromise = new Promise((resolve) => { pendingSaveResolve = resolve; });
+  }
+
+  if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+  saveDebounceTimer = setTimeout(() => flushSave(), SAVE_DEBOUNCE_MS);
+
+  if (!saveMaxWaitTimer) {
+    saveMaxWaitTimer = setTimeout(() => flushSave(), SAVE_MAX_WAIT_MS);
+  }
+
+  return pendingSavePromise;
+}
+
+async function flushSave() {
+  if (saveInProgress) {
+    setTimeout(() => flushSave(), 200);
+    return;
+  }
+
+  if (saveDebounceTimer) { clearTimeout(saveDebounceTimer); saveDebounceTimer = null; }
+  if (saveMaxWaitTimer) { clearTimeout(saveMaxWaitTimer); saveMaxWaitTimer = null; }
+
+  saveInProgress = true;
+  showToast('保存中，请稍候...');
+
+  const ok = await saveData();
+
+  saveInProgress = false;
+
+  const resolveFn = pendingSaveResolve;
+  pendingSaveResolve = null;
+  pendingSavePromise = null;
+  if (resolveFn) resolveFn(ok);
+
+  if (ok) {
+    pendingSnapshot = null;
+    updateLastSaveTime();
+    showToast('保存成功');
+  } else if (pendingSnapshot) {
+    // 保存失败，恢复到本次批量操作前的状态
+    state.categories = pendingSnapshot;
+    pendingSnapshot = null;
+    renderCategoryTabs();
+    renderHomeItems('all');
+    refreshAllAdminViews();
+    alert('❌ 保存到服务器失败！\n\n可能原因：云隧道连接不稳定，请稍后重试。\n\n数据已恢复到保存前状态。');
+  }
+}
+
+// 离开页面前若还有未保存的修改，先尝试保存
+window.addEventListener('beforeunload', (e) => {
+  if (saveDebounceTimer || saveInProgress) {
+    flushSave();
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+});
+
+// ============================================
 // 3. 图片上传到服务器
 // ============================================
 
@@ -167,12 +280,53 @@ async function uploadImage(file) {
     const resp = await fetch('/api/upload', { method: 'POST', body: formData });
     const json = await resp.json();
     if (json.success) return json.url;
-    showToast('图片上传失败: ' + (json.message || ''));
+    console.warn('图片上传失败:', json.message);
     return null;
   } catch (e) {
-    showToast('图片上传失败，请检查服务器连接');
+    console.warn('图片上传失败（服务器可能未启动上传接口）:', e.message);
     return null;
   }
+}
+
+/**
+ * Canvas 压缩图片为缩略图（最大 512×512，质量 0.85）
+ * 适配 2x Retina 屏幕，清晰度接近原图，单张约 15-30KB
+ */
+function compressImage(file, maxWidth = 512, maxHeight = 512, quality = 0.85) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      let { width, height } = img;
+
+      // 等比例缩放到限制尺寸以内
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(new File([blob], file.name, { type: blob.type || 'image/png' }));
+        } else {
+          resolve(file); // 兜底：使用原文件
+        }
+      }, file.type || 'image/png', quality);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(file); // 兜底：使用原文件
+    };
+    img.src = objectUrl;
+  });
 }
 
 // ============================================
@@ -180,16 +334,25 @@ async function uploadImage(file) {
 // ============================================
 
 function isImageIcon(icon) {
-  return icon && (icon.startsWith('data:image/') || icon.startsWith('/uploads/') || icon.startsWith('http'));
+  return icon && (icon.startsWith('data:image/') || icon.startsWith('/uploads/') || icon.startsWith('/img/') || icon.startsWith('http'));
 }
 
 function renderIconHTML(icon, cssClass) {
   if (!icon) return '';
   if (isImageIcon(icon)) {
     const style = 'max-width:64px;max-height:64px;width:auto;height:auto;object-fit:cover;border-radius:8px;vertical-align:middle;display:inline-block;';
-    return `<img src="${escHtml(icon)}" class="${cssClass || ''}" alt="" style="${style}" onerror="this.style.display='none'">`;
+    return `<img src="${escHtml(icon)}" class="${cssClass || ''}" alt="" loading="lazy" style="${style}" onerror="this.style.display='none'">`;
   }
   return icon;
+}
+
+// 首页大卡片封面专用：图片铺满容器，不留空白
+function renderCoverIconHTML(icon) {
+  if (!icon) return '<span style="font-size:3rem;opacity:.6;">🎮</span>';
+  if (isImageIcon(icon)) {
+    return `<img src="${escHtml(icon)}" alt="" loading="lazy" onerror="this.style.display='none'">`;
+  }
+  return `<span class="cover-emoji">${icon}</span>`;
 }
 
 // ============================================
@@ -292,10 +455,12 @@ function renderHomeItems(catId, searchQuery) {
 
   list.innerHTML = items.map(item => `
     <div class="large-item-card" onclick="openItemModal('${item.categoryId}', '${item.id}')">
-      <div class="large-item-cover">${renderIconHTML(item.icon, '')}</div>
+      <div class="large-item-cover">
+        ${renderCoverIconHTML(item.icon)}
+        ${item.tags && item.tags.length ? `<div class="cover-tags">${item.tags.slice(0, 3).map(t => `<span>${t}</span>`).join('')}</div>` : ''}
+      </div>
       <div class="large-item-info">
         <div class="large-item-title">${item.title}</div>
-        ${item.tags && item.tags.length ? `<div class="large-item-tags">${item.tags.map(t => `<span class="large-item-tag">${t}</span>`).join('')}</div>` : ''}
       </div>
     </div>
   `).join('');
@@ -377,6 +542,9 @@ function switchView(viewName) {
   if (target) target.classList.add('active');
   state.currentView = viewName;
   renderBreadcrumb();
+  // 首页置顶横幅仅在首页显示
+  const homeHero = document.getElementById('homeHero');
+  if (homeHero) homeHero.classList.toggle('hero-hidden', viewName !== 'home');
   // 搜索栏在所有视图都可见，但清空搜索结果
   const results = document.getElementById('searchResults');
   const input = document.getElementById('searchInput');
@@ -419,10 +587,17 @@ function openItemModal(categoryId, itemId) {
       <div class="modal-icon">${renderIconHTML(item.icon, '')}</div>
       <div class="modal-title">${item.title}</div>
       <div class="modal-desc">${item.desc}</div>
-      <a href="${item.link}" target="_blank" rel="noopener" class="modal-link">🔗 打开主链接</a>
+      <a href="${item.link}" target="_blank" rel="noopener" class="modal-link">⬇️ 立即下载</a>
       ${item.link2 ? `<a href="${item.link2}" target="_blank" rel="noopener" class="modal-link-secondary">🔗 打开备用链接</a>` : ''}
       <button class="modal-link-secondary" onclick="copyLink('${item.link}')">📋 复制链接</button>
       <button class="modal-link-secondary" onclick="generateShareImage('${item.id}')" style="background:linear-gradient(135deg,#7c5cfc,#a855f7);color:#fff;font-weight:600;">📤 生成分享图片</button>
+      <div class="modal-qq">
+        <div class="modal-qq-title" style="text-align:center;">🎮 晚心游戏玩家交流群</div>
+        <div class="modal-qq-notice">嫌麻烦的直接进群拿安装包</div>
+        <div class="modal-qq-notice">闪退等问题进群</div>
+        <div class="modal-qq-line" onclick="event.stopPropagation();copyQQ()">QQ群号：<b>865809461</b> <span class="modal-qq-tip">(点击复制)</span></div>
+        <div class="modal-qq-line" onclick="event.stopPropagation();copyQQCode()">进群口令：<b>@@晚心游戏@</b> <span class="modal-qq-tip">(点击复制)</span></div>
+      </div>
       <button class="modal-close" onclick="closeModal()">关闭</button>
     </div>`;
   overlay.classList.add('show');
@@ -612,7 +787,7 @@ async function generateShareImage(itemId) {
   _drawRoundRect(ctx, cardX, cardY, cardW, cardH, 20);
   ctx.stroke();
 
-  // 卡片内：📍图标 + 标签
+  // 卡片内：标题
   ctx.fillStyle = 'rgba(255,255,255,0.5)';
   ctx.font = '18px "PingFang SC","Microsoft YaHei","Heiti SC",sans-serif';
   ctx.textAlign = 'center';
@@ -622,7 +797,7 @@ async function generateShareImage(itemId) {
   // 卡片内：大号网址
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 36px "PingFang SC","Microsoft YaHei","Heiti SC",sans-serif';
-  ctx.fillText('wanxinyouxi.top', w / 2, cardY + 48);
+  ctx.fillText('wan123456.com', w / 2, cardY + 48);
 
   // 卡片内：小提示
   ctx.fillStyle = 'rgba(255,255,255,0.4)';
@@ -642,8 +817,8 @@ async function generateShareImage(itemId) {
   _shareCanvas = canvas;
 
   // ======= 同时复制分享链接到剪贴板 =======
-  const shareUrl = 'https://wanxinyouxi.top/';
-  if (navigator.clipboard) {
+  const shareUrl = 'https://wan123456.com/';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(shareUrl).catch(() => {});
   }
 
@@ -698,6 +873,27 @@ function copyShareImage() {
   }, 'image/png', 0.9);
 }
 
+function copyShareLink() {
+  const url = 'https://wan123456.com/';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => {
+      showToast('🔗 链接已复制：' + url);
+    }).catch(() => {
+      showToast('复制失败，请手动复制：' + url);
+    });
+  } else {
+    // 降级方案
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('🔗 链接已复制：' + url);
+  }
+}
+
 // ============================================
 // 10. QQ群复制
 // ============================================
@@ -707,6 +903,23 @@ function copyQQ() {
     navigator.clipboard.writeText('865809461').then(() => showToast('QQ群号已复制：865809461'));
   } else {
     showToast('晚心游戏QQ群：865809461');
+  }
+}
+
+function copyQQCode() {
+  const code = '@@晚心游戏@';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(() => showToast('进群口令已复制：' + code));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = code;
+    ta.style.position = 'fixed';
+    ta.style.opacity = 0;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('进群口令已复制：' + code);
   }
 }
 
@@ -1063,25 +1276,30 @@ function handleIconFileSelect(event) {
     return;
   }
 
+  const preview = document.getElementById('iconUploadPreview');
+  const emojiPreview = document.getElementById('iconEmojiPreview');
+  const clearBtn = document.getElementById('iconClearBtn');
+  const emojiInput = document.getElementById('catIcon');
+
+  // 立即显示本地预览
+  const localPreviewUrl = URL.createObjectURL(file);
+  if (preview) {
+    preview.src = localPreviewUrl;
+    preview.style.display = '';
+  }
+  if (emojiPreview) emojiPreview.style.display = 'none';
+  if (clearBtn) clearBtn.style.display = '';
+  if (emojiInput) emojiInput.value = '';
+
+  // 1. base64 作为兜底数据（立即可用）
   const reader = new FileReader();
   reader.onload = function(e) {
-    const base64 = e.target.result;
-    window._iconUploadData = base64;
-
-    const preview = document.getElementById('iconUploadPreview');
-    const emojiPreview = document.getElementById('iconEmojiPreview');
-    const clearBtn = document.getElementById('iconClearBtn');
-    const emojiInput = document.getElementById('catIcon');
-
-    if (preview) {
-      preview.src = base64;
-      preview.style.display = '';
-    }
-    if (emojiPreview) emojiPreview.style.display = 'none';
-    if (clearBtn) clearBtn.style.display = '';
-    if (emojiInput) emojiInput.value = '';
+    window._iconUploadData = e.target.result;
   };
   reader.readAsDataURL(file);
+
+  // 2. 压缩后上传到服务器（优先使用 /uploads/xxx.png 路径）
+  window._iconUploadPromise = compressImage(file).then(compressed => uploadImage(compressed));
 }
 
 function clearIconUpload() {
@@ -1107,20 +1325,28 @@ function handleItemIconFileSelect(event) {
   const file = event.target.files[0];
   if (!file) return;
   if (file.size > 2 * 1024 * 1024) { showToast('图片不能超过2MB'); return; }
+
+  const preview = document.getElementById('itemIconUploadPreview');
+  const emojiPreview = document.getElementById('itemIconEmojiPreview');
+  const clearBtn = document.getElementById('itemIconClearBtn');
+  const emojiInput = document.getElementById('itemIcon');
+
+  // 立即显示本地预览
+  const localPreviewUrl = URL.createObjectURL(file);
+  if (preview) { preview.src = localPreviewUrl; preview.style.display = ''; }
+  if (emojiPreview) emojiPreview.style.display = 'none';
+  if (clearBtn) clearBtn.style.display = '';
+  if (emojiInput) emojiInput.value = '';
+
+  // 1. base64 兜底
   const reader = new FileReader();
   reader.onload = function(e) {
-    const base64 = e.target.result;
-    window._itemIconUploadData = base64;
-    const preview = document.getElementById('itemIconUploadPreview');
-    const emojiPreview = document.getElementById('itemIconEmojiPreview');
-    const clearBtn = document.getElementById('itemIconClearBtn');
-    const emojiInput = document.getElementById('itemIcon');
-    if (preview) { preview.src = base64; preview.style.display = ''; }
-    if (emojiPreview) emojiPreview.style.display = 'none';
-    if (clearBtn) clearBtn.style.display = '';
-    if (emojiInput) emojiInput.value = '';
+    window._itemIconUploadData = e.target.result;
   };
   reader.readAsDataURL(file);
+
+  // 2. 压缩后上传到服务器
+  window._itemIconUploadPromise = compressImage(file).then(compressed => uploadImage(compressed));
 }
 
 function clearItemIconUpload() {
@@ -1149,6 +1375,17 @@ async function saveCategory() {
   const id = document.getElementById('catId').value.trim();
   const desc = document.getElementById('catDesc').value.trim();
 
+  // 等待图片上传完成，优先使用服务器 URL，失败则用 base64 兜底
+  if (window._iconUploadPromise) {
+    try {
+      const uploadedUrl = await window._iconUploadPromise;
+      if (uploadedUrl) {
+        window._iconUploadData = uploadedUrl;
+      }
+    } catch (e) { /* 忽略上传错误，用 base64 兜底 */ }
+    window._iconUploadPromise = null;
+  }
+
   // 优先使用上传的图片，否则使用 emoji 输入
   let icon;
   if (window._iconUploadData) {
@@ -1167,7 +1404,7 @@ async function saveCategory() {
     if (state.categories.find(c => c.id === id)) { showToast('该ID已存在，请换一个'); return; }
     state.categories.push({ id, name, icon, desc, items: [] });
   }
-  const ok = await saveData();
+  const ok = await requestSave();
   if (!ok) return;
   cancelCategoryForm();
   renderAdminCategoryList();
@@ -1186,15 +1423,9 @@ function deleteCategory(catId) {
   if (!cat) return;
   const catIndex = state.categories.indexOf(cat);
   showConfirm('删除分类', `确定删除「${cat.name}」及其下所有 ${cat.items.length} 个链接吗？`, async () => {
-    const deletedCat = state.categories.splice(catIndex, 1)[0];
-    const ok = await saveData();
-    if (!ok) {
-      state.categories.splice(catIndex, 0, deletedCat); // 保存失败，回滚
-      alert('❌ 保存到服务器失败！\n\n可能原因：云隧道连接不稳定，请稍后重试。\n\n数据已恢复到删除前状态。');
-      refreshAllAdminViews();
-      if (state.currentView === 'home') renderCategoryCards();
-      return;
-    }
+    state.categories.splice(catIndex, 1);
+    const ok = await requestSave();
+    if (!ok) return; // 失败由 flushSave 统一恢复并提示
     refreshAllAdminViews();
     if (state.currentView === 'home') renderCategoryCards();
     showToast('分类已删除');
@@ -1341,6 +1572,18 @@ async function saveItem(originalItemId) {
   const catId = document.getElementById('itemCatId').value;
   const title = document.getElementById('itemTitle').value.trim();
   const desc = document.getElementById('itemDesc').value.trim();
+
+  // 等待图片上传完成，优先使用服务器 URL
+  if (window._itemIconUploadPromise) {
+    try {
+      const uploadedUrl = await window._itemIconUploadPromise;
+      if (uploadedUrl) {
+        window._itemIconUploadData = uploadedUrl;
+      }
+    } catch (e) { /* 忽略上传错误，用 base64 兜底 */ }
+    window._itemIconUploadPromise = null;
+  }
+
   let icon;
   if (window._itemIconUploadData) {
     icon = window._itemIconUploadData;
@@ -1374,11 +1617,14 @@ async function saveItem(originalItemId) {
     cat.items.push({ id: newId, title, desc, icon, link, link2, tags });
   }
 
-  const ok = await saveData();
+  const ok = await requestSave();
   if (!ok) return;
   cancelItemForm();
   renderItemCardsForCategory(catId);
-  if (state.currentView === 'home') renderCategoryCards();
+  if (state.currentView === 'home') {
+    renderCategoryTabs();
+    renderHomeItems(currentHomeCategoryId);
+  }
   if (state.currentView === 'category' && state.currentCategoryId === catId) {
     renderCategoryDetail(cat);
   }
@@ -1398,14 +1644,9 @@ function deleteItem(catId, itemId) {
   if (!item) return;
   const itemIndex = cat.items.indexOf(item);
   showConfirm('删除链接', `确定删除「${item.title}」吗？`, async () => {
-    const deletedItem = cat.items.splice(itemIndex, 1)[0];
-    const ok = await saveData();
-    if (!ok) {
-      cat.items.splice(itemIndex, 0, deletedItem); // 保存失败，回滚
-      alert('❌ 保存到服务器失败！\n\n可能原因：云隧道连接不稳定，请稍后重试。\n\n数据已恢复到删除前状态。');
-      renderItemCardsForCategory(catId);
-      return;
-    }
+    cat.items.splice(itemIndex, 1);
+    const ok = await requestSave();
+    if (!ok) return; // 失败由 flushSave 统一恢复并提示
     renderItemCardsForCategory(catId);
     if (state.currentView === 'home') renderCategoryCards();
     if (state.currentView === 'category' && state.currentCategoryId === catId) renderCategoryDetail(cat);
@@ -1458,16 +1699,78 @@ async function changePassword() {
 }
 
 // ============================================
-// 19. 初始化
+// 19. 初始化（localStorage 缓存加速）
 // ============================================
 
 async function init() {
-  state.categories = await loadData();
-  renderCategoryTabs();
-  renderHomeItems('all');
-  bindEvents();
-  updateLastSaveTime();
+  // 第1步：从 localStorage 瞬间渲染（< 1ms）
+  const cached = _loadLocalCache();
+  if (cached) {
+    state.categories = cached;
+    renderCategoryTabs();
+    renderHomeItems('all');
+    bindEvents();
+    updateLastSaveTime();
+    console.log('[init] 从本地缓存瞬间渲染完成，后台同步最新数据...');
+  }
+
+  // 第2步：后台从服务器拉取最新数据（不阻塞页面）
+  try {
+    const fresh = await loadData();
+    const cachedCount = cached ? _countAllItems(cached) : -1;
+    const freshCount = _countAllItems(fresh);
+
+    // 检查是否刚刚保存过（60s 内）。Cloudflare KV 有最多 60s 的延迟，
+    // 刚保存完立即刷新可能读到旧数据，此时应信任本地缓存
+    let justSaved = false;
+    try {
+      const savedAt = localStorage.getItem('wx_saved_at');
+      if (savedAt && (Date.now() - parseInt(savedAt)) < 60000) {
+        justSaved = true;
+      }
+    } catch (e) { /* ignore */ }
+
+    const dataChanged = !cached || JSON.stringify(fresh) !== JSON.stringify(cached);
+    const isKVStale = justSaved && freshCount < cachedCount;
+    const needsUpdate = dataChanged && !isKVStale;
+
+    if (needsUpdate) {
+      state.categories = fresh;
+      renderCategoryTabs();
+      renderHomeItems('all');
+      updateLastSaveTime();
+      console.log('[init] 服务器数据已更新，页面已刷新');
+    } else if (isKVStale) {
+      console.log('[init] 刚保存过，服务器数据可能滞后于 KV（条目数 ' + freshCount + ' < 缓存 ' + cachedCount + '），保留缓存');
+    } else {
+      console.log('[init] 缓存数据为最新，无需更新');
+    }
+  } catch (e) {
+    console.warn('[init] 后台同步失败，继续使用缓存:', e.message);
+    if (!cached) {
+      // 首次访问+网络失败：用默认数据兜底
+      state.categories = JSON.parse(JSON.stringify(defaultData.categories));
+      renderCategoryTabs();
+      renderHomeItems('all');
+    }
+  }
+
+  // 只当还没有绑定事件时才绑定（避免重复）
+  if (!cached) {
+    bindEvents();
+    updateLastSaveTime();
+  }
+
   handleShareLink();
+}
+
+// 统计所有分类下的 item 总数（用于判断服务器数据是否过期）
+function _countAllItems(categories) {
+  let count = 0;
+  for (const cat of categories) {
+    if (cat.items && Array.isArray(cat.items)) count += cat.items.length;
+  }
+  return count;
 }
 
 // 处理 /share/{itemId} 分享链接：自动打开对应游戏的详情弹窗

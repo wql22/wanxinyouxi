@@ -18,6 +18,8 @@ const zlib = require('zlib');
 
 const PORT = 5501;
 const DATA_FILE = path.join(__dirname, 'data.json');
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const MAX_BODY_SIZE = 50 * 1024 * 1024; // 限制请求体最大 50MB，防止大 JSON 导致内存崩溃
 
 // 默认数据
 const defaultData = {
@@ -148,8 +150,20 @@ function parseBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let settled = false;
+    let received = 0;
 
-    req.on('data', chunk => { chunks.push(chunk); });
+    req.on('data', chunk => {
+      received += chunk.length;
+      if (received > MAX_BODY_SIZE) {
+        if (!settled) {
+          settled = true;
+          reject(new Error('请求体超过最大限制'));
+        }
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on('end', () => {
       if (settled) return;
       settled = true;
@@ -180,6 +194,84 @@ function parseBody(req) {
 }
 
 // ==========================================
+// 原始请求体（用于文件上传等非 JSON 场景）
+// ==========================================
+
+function parseBodyRaw(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let received = 0;
+    req.on('data', chunk => {
+      received += chunk.length;
+      if (received > MAX_BODY_SIZE) {
+        req.destroy();
+        reject(new Error('请求体超过最大限制'));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => { resolve(Buffer.concat(chunks)); });
+    req.on('error', reject);
+  });
+}
+
+// ==========================================
+// 简易 multipart/form-data 解析（不依赖第三方库）
+// ==========================================
+
+function parseMultipart(buffer, boundary) {
+  const boundaryBuffer = Buffer.from('--' + boundary);
+  const headerEndMarker = Buffer.from('\r\n\r\n');
+  const parts = [];
+
+  let pos = buffer.indexOf(boundaryBuffer);
+  if (pos === -1) return null;
+  pos += boundaryBuffer.length;
+
+  while (pos < buffer.length) {
+    // 跳过 boundary 后的 \r\n
+    if (pos + 1 < buffer.length && buffer[pos] === 0x0d) pos += 2;
+
+    // 检查是否到达结束 boundary (--boundary--)
+    if (pos + 1 < buffer.length && buffer[pos] === 0x2d && buffer[pos + 1] === 0x2d) break;
+
+    // 找到 header 与 body 的分隔 \r\n\r\n
+    const headerEnd = buffer.indexOf(headerEndMarker, pos);
+    if (headerEnd === -1) break;
+
+    const headerStr = buffer.slice(pos, headerEnd).toString('utf-8');
+    pos = headerEnd + 4; // 跳过 \r\n\r\n
+
+    // 找到下一个 boundary
+    const nextBoundary = buffer.indexOf(boundaryBuffer, pos);
+    let partEnd;
+    if (nextBoundary !== -1) {
+      // body 数据结束于 boundary 前的 \r\n
+      partEnd = nextBoundary - 2;
+    } else {
+      partEnd = buffer.length - 2; // 末尾的 \r\n
+    }
+    if (partEnd < pos) partEnd = pos;
+
+    const nameMatch = headerStr.match(/name="([^"]*)"/);
+    const filenameMatch = headerStr.match(/filename="([^"]*)"/);
+
+    if (nameMatch) {
+      parts.push({
+        name: nameMatch[1],
+        filename: filenameMatch ? filenameMatch[1] : null,
+        data: buffer.slice(pos, partEnd),
+      });
+    }
+
+    if (nextBoundary === -1) break;
+    pos = nextBoundary + boundaryBuffer.length;
+  }
+
+  return parts;
+}
+
+// ==========================================
 // MIME 类型映射
 // ==========================================
 
@@ -203,8 +295,8 @@ const mimeTypes = {
 function sendJSON(res, code, data) {
   res.writeHead(code, {
     'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-    'Pragma': 'no-cache',
+    'Cache-Control': 'public, max-age=0, must-revalidate',
+    'Pragma': 'public',
     'Expires': '0',
   });
   res.end(JSON.stringify(data));
@@ -250,6 +342,213 @@ function serveStatic(req, res, filePath) {
 }
 
 // ==========================================
+// 分享页处理：为每个链接生成独立的 OG 分享页
+// ==========================================
+
+function handleSharePage(req, res, itemId) {
+  // 遍历所有分类，找到对应 item
+  let foundItem = null;
+  let foundCat = null;
+  for (const cat of appData.categories) {
+    const item = cat.items.find(i => i.id === itemId);
+    if (item) {
+      foundItem = item;
+      foundCat = cat;
+      break;
+    }
+  }
+
+  const siteUrl = 'https://wan123456.com';
+  const fallbackImage = siteUrl + '/og-cover.png';
+
+  // 判断图标是否为有效的图片 URL
+  let ogImage = fallbackImage;
+  if (foundItem && foundItem.icon) {
+    const icon = foundItem.icon;
+    if (icon.startsWith('http://') || icon.startsWith('https://')) {
+      ogImage = icon;
+    }
+    // base64 和 emoji 不能作为 og:image，统一用封面图
+  }
+
+  const title = foundItem ? `${foundItem.title} - 晚心游戏` : '晚心游戏 - 发现精彩世界';
+  const desc = foundItem ? (foundItem.desc || foundItem.title) : '游戏、影视、动漫、音乐... 你想要的都在这里';
+  const redirectUrl = foundItem && foundItem.link ? foundItem.link : siteUrl;
+  const catName = foundCat ? foundCat.name : '';
+
+  const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>${escapeHtml(title)}</title>
+<meta name="description" content="${escapeHtml(desc)}">
+
+<!-- ====== Open Graph 协议 ====== -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="${escapeHtml(title)}">
+<meta property="og:description" content="${escapeHtml(desc)}">
+<meta property="og:url" content="${siteUrl}/share/${itemId}">
+<meta property="og:image" content="${ogImage}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="晚心游戏">
+<meta property="og:locale" content="zh_CN">
+
+<!-- ====== Twitter 卡片 ====== -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escapeHtml(title)}">
+<meta name="twitter:description" content="${escapeHtml(desc)}">
+<meta name="twitter:image" content="${ogImage}">
+
+<!-- ====== 微信专用 Schema.org 标记 ====== -->
+<meta itemprop="name" content="${escapeHtml(title)}">
+<meta itemprop="description" content="${escapeHtml(desc)}">
+<meta itemprop="image" content="${ogImage}">
+
+<!-- ====== 移动端 ====== -->
+<meta name="theme-color" content="#7c5cfc">
+<meta name="apple-mobile-web-app-title" content="晚心游戏">
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+  }
+  .card {
+    text-align: center;
+    padding: 40px 30px;
+    max-width: 400px;
+    width: 90%;
+  }
+  .card-icon {
+    font-size: 56px;
+    margin-bottom: 20px;
+    line-height: 1;
+  }
+  .card-icon img {
+    width: 80px; height: 80px;
+    border-radius: 16px;
+    object-fit: cover;
+    box-shadow: 0 8px 30px rgba(124, 92, 252, 0.3);
+  }
+  .card-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .card-desc {
+    font-size: 14px;
+    color: rgba(255,255,255,0.65);
+    margin-bottom: 6px;
+  }
+  .card-cat {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 28px;
+    padding: 3px 12px;
+    background: rgba(124, 92, 252, 0.2);
+    border-radius: 20px;
+    display: inline-block;
+  }
+  .card-btn {
+    display: inline-block;
+    background: linear-gradient(135deg, #7c5cfc, #a855f7);
+    color: #fff;
+    padding: 14px 48px;
+    border-radius: 30px;
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+    box-shadow: 0 6px 25px rgba(124, 92, 252, 0.4);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .card-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(124, 92, 252, 0.5); }
+  .card-footer {
+    margin-top: 30px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+  }
+  .card-footer a {
+    color: rgba(255,255,255,0.6);
+    text-decoration: none;
+  }
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .redirect-hint {
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+    margin-top: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="card-icon">${renderShareIcon(foundItem)}</div>
+  <div class="card-title">${foundItem ? escapeHtml(foundItem.title) : '晚心游戏'}</div>
+  ${foundItem && foundItem.desc ? '<div class="card-desc">' + escapeHtml(foundItem.desc) + '</div>' : ''}
+  ${catName ? '<div class="card-cat">' + escapeHtml(catName) + '</div>' : ''}
+  <a class="card-btn" href="${escapeHtml(redirectUrl)}" target="_blank" rel="noopener">
+    <span class="spinner"></span>正在跳转...
+  </a>
+  <div class="redirect-hint">如果没有自动跳转，请点击上方按钮</div>
+  <div class="card-footer">
+    由 <a href="${siteUrl}" target="_blank">晚心游戏</a> 分享
+  </div>
+</div>
+<script>
+  // 自动跳转到目标链接
+  setTimeout(function() {
+    window.location.href = "${escapeHtml(redirectUrl)}";
+  }, 1500);
+</script>
+</body>
+</html>`;
+
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(html);
+}
+
+/**
+ * 渲染分享页图标
+ */
+function renderShareIcon(item) {
+  if (!item || !item.icon) return '🌙';
+  const icon = item.icon;
+  if (icon.startsWith('http://') || icon.startsWith('https://')) {
+    return '<img src="' + escapeHtml(icon) + '" alt="">';
+  }
+  if (icon.startsWith('data:image/')) {
+    return '<img src="' + escapeHtml(icon) + '" alt="">';
+  }
+  // emoji
+  return escapeHtml(icon);
+}
+
+/**
+ * HTML 转义
+ */
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ==========================================
 // API 路由处理
 // ==========================================
 
@@ -259,6 +558,66 @@ async function handleAPI(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/data') {
     console.log('[GET /api/data] 返回分类数据，分类数:', appData.categories.length);
     sendJSON(res, 200, { categories: appData.categories });
+    return;
+  }
+
+  // ===== POST /api/upload =====
+  // 上传图片到服务器，返回 URL 路径（图片以独立文件存储，不写入 data.json）
+  if (req.method === 'POST' && pathname === '/api/upload') {
+    const ct = req.headers['content-type'] || '';
+    if (!ct.includes('multipart/form-data')) {
+      sendJSON(res, 400, { success: false, message: '需要 multipart/form-data 格式' });
+      return;
+    }
+    const boundaryMatch = ct.match(/boundary=(.+)$/);
+    if (!boundaryMatch) {
+      sendJSON(res, 400, { success: false, message: '缺少 boundary' });
+      return;
+    }
+    try {
+      const body = await parseBodyRaw(req);
+      const boundary = boundaryMatch[1].replace(/^["']|["']$/g, '');
+      const parts = parseMultipart(body, boundary);
+
+      if (!parts || parts.length === 0) {
+        sendJSON(res, 400, { success: false, message: '没有上传文件' });
+        return;
+      }
+
+      const filePart = parts.find(p => p.filename);
+      if (!filePart || filePart.data.length === 0) {
+        sendJSON(res, 400, { success: false, message: '没有找到有效文件' });
+        return;
+      }
+
+      // 限制单文件最大 3MB
+      if (filePart.data.length > 3 * 1024 * 1024) {
+        sendJSON(res, 400, { success: false, message: '文件不能超过3MB' });
+        return;
+      }
+
+      // 仅允许图片类型
+      const ext = path.extname(filePart.filename).toLowerCase();
+      const allowedExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp'];
+      const safeExt = allowedExts.includes(ext) ? ext : '.png';
+
+      const uniqueName = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8) + safeExt;
+      const filePath = path.join(UPLOADS_DIR, uniqueName);
+
+      // 确保 uploads 目录存在
+      if (!fs.existsSync(UPLOADS_DIR)) {
+        fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+      }
+
+      fs.writeFileSync(filePath, filePart.data);
+      const url = '/uploads/' + uniqueName;
+      const sizeKB = (filePart.data.length / 1024).toFixed(1);
+      console.log('[POST /api/upload] ✓ 已保存:', url, '(' + sizeKB + 'KB)');
+      sendJSON(res, 200, { success: true, url });
+    } catch (e) {
+      console.error('[POST /api/upload] 错误:', e.message);
+      sendJSON(res, 500, { success: false, message: '上传失败: ' + e.message });
+    }
     return;
   }
 
@@ -407,6 +766,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ===== GET /share/:itemId =====
+  // 为每个链接生成独立的分享页（带 OG 标签 + 该链接的图标）
+  if (pathname.startsWith('/share/')) {
+    const itemId = pathname.replace('/share/', '').trim();
+    handleSharePage(req, res, itemId);
+    return;
+  }
+
   // 静态文件
   if (pathname === '/') {
     pathname = '/index.html';
@@ -423,6 +790,11 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // /uploads/ 目录下的图片缓存 1 年（图片文件名唯一，内容不变）
+  if (pathname.startsWith('/uploads/')) {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+
   serveStatic(req, res, filePath);
 });
 
@@ -431,6 +803,12 @@ const server = http.createServer(async (req, res) => {
 // ==========================================
 
 loadData(); // 启动时加载数据
+
+// 确保 uploads 目录存在
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  console.log('[init] 已创建 uploads/ 目录');
+}
 
 server.listen(PORT, '0.0.0.0', () => {
   const localIPs = getLocalIPs();

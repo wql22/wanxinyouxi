@@ -10,8 +10,8 @@ export async function onRequestGet(context) {
       { categories: data.categories },
       {
         headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
-          Pragma: 'no-cache',
+          'Cache-Control': 'public, max-age=0, must-revalidate',
+          Pragma: 'public',
           Expires: '0',
         },
       }
